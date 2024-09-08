@@ -17,7 +17,7 @@ const (
 	customerTick = 300 * time.Millisecond
 	dayDur       = 20 * time.Second
 
-	storeCap = 8
+	storeCap = 2
 )
 
 func main() {
@@ -40,13 +40,13 @@ func main() {
 	wg.Add(1)
 	go gen.Run(ctx, &wg, func() {
 		wg.Add(1)
-		go customerGenerator(ctx, &wg, cm)
+		go customerManager(ctx, &wg, cm)
 	})
 
 	wg.Wait()
 }
 
-func customerGenerator(ctx context.Context, wg *sync.WaitGroup, cm conn.Manager[int]) {
+func customerManager(ctx context.Context, wg *sync.WaitGroup, cm conn.Manager[int]) {
 	defer wg.Done()
 
 	cn := cm.CreateConn(ctx, wg)
@@ -54,9 +54,17 @@ func customerGenerator(ctx context.Context, wg *sync.WaitGroup, cm conn.Manager[
 		fmt.Println("Customer dismissed")
 		return
 	}
-	defer cn.Done()
+
+	go func() {
+		for m := range cn.C() {
+			fmt.Printf("Customer %d, Picked up %d item(s).\n", cn.ID(), m)
+		}
+	}()
 
 	cus := customer.New([]int{0, 1, 2, 3, 4, 5})
-	time.Sleep(time.Duration(len(cus.Order)) * cus.Speed)
-	fmt.Printf("Customer: %d, Order: %d\n", cn.ID(), cus.Order)
+	for _, v := range cus.Order {
+		time.Sleep(cus.Speed)
+		cn.C() <- v
+	}
+	cn.Done()
 }
