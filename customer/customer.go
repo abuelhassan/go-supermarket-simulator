@@ -12,20 +12,20 @@ const (
 	speedMaxMillis = 800
 )
 
-type Customer struct {
+type Customer[T comparable] struct {
 	Speed time.Duration
-	Order Order
+	Order Order[T]
 }
 
-type Order map[int]int
+type Order[T comparable] map[T]int
 
-func New(opts []int) Customer {
-	items, o := 1+rand.Intn(maxItems), make(Order)
+func New[T comparable](opts []T) Customer[T] {
+	items, o := 1+rand.Intn(maxItems), make(Order[T])
 	for i := 0; i < items; i++ {
-		o[rand.Intn(len(opts))]++
+		o[opts[rand.Intn(len(opts))]]++
 	}
 	speed := speedMinMillis + rand.Intn(speedMaxMillis-speedMinMillis)
-	return Customer{
+	return Customer[T]{
 		Speed: time.Duration(speed) * time.Millisecond,
 		Order: o,
 	}

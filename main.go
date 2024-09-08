@@ -11,6 +11,8 @@ import (
 	"github.com/abuelhassan/go-supermarket-simulator/conn"
 	"github.com/abuelhassan/go-supermarket-simulator/customer"
 	"github.com/abuelhassan/go-supermarket-simulator/generator"
+	"github.com/abuelhassan/go-supermarket-simulator/product"
+	"github.com/abuelhassan/go-supermarket-simulator/store"
 )
 
 const (
@@ -19,6 +21,11 @@ const (
 
 	storeCap = 2
 )
+
+type picked struct {
+	p   product.Product
+	cnt int
+}
 
 func main() {
 	c := make(chan os.Signal, 1)
@@ -32,21 +39,25 @@ func main() {
 		time.Sleep(3 * time.Second)
 	}()
 
-	cm := conn.NewManager[int](storeCap)
+	cm := conn.NewManager[picked](storeCap)
 	gen := generator.New(customerTick, dayDur)
+	st := store.New()
+	initializeStore(st)
 
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go gen.Run(ctx, &wg, func() {
 		wg.Add(1)
-		go customerManager(ctx, &wg, cm)
+		go customerManager(ctx, &wg, cm, st)
 	})
 
 	wg.Wait()
+	summary := st.Summary()
+	fmt.Println(&summary)
 }
 
-func customerManager(ctx context.Context, wg *sync.WaitGroup, cm conn.Manager[int]) {
+func customerManager(ctx context.Context, wg *sync.WaitGroup, cm conn.Manager[picked], st store.Store) {
 	defer wg.Done()
 
 	cn := cm.CreateConn(ctx, wg)
@@ -57,14 +68,28 @@ func customerManager(ctx context.Context, wg *sync.WaitGroup, cm conn.Manager[in
 
 	go func() {
 		for m := range cn.C() {
-			fmt.Printf("Customer %d, Picked up %d item(s).\n", cn.ID(), m)
+			if ok := st.UpdateBill(cn.ID(), m.p, m.cnt); ok {
+				fmt.Printf("Customer %d, Picked up %d item(s) of %s.\n", cn.ID(), m.cnt, m.p.Name())
+			} else {
+				fmt.Printf("Customer %d didn't find %s\n", cn.ID(), m.p.Name())
+			}
 		}
 	}()
 
-	cus := customer.New([]int{0, 1, 2, 3, 4, 5})
-	for _, v := range cus.Order {
+	cus := customer.New(st.AllowedProducts())
+	for k, v := range cus.Order {
 		time.Sleep(cus.Speed)
-		cn.C() <- v
+		cn.C() <- picked{p: k, cnt: v}
 	}
 	cn.Done()
+}
+
+func initializeStore(st store.Store) {
+	st.PurchaseLicense(product.LicenseBasic)
+	st.PurchaseDisplay(product.DisplayShelf)
+
+	prods := st.AllowedProducts()
+	for _, v := range prods {
+		st.BuyProduct(v, 15)
+	}
 }
