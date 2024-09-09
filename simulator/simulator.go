@@ -25,31 +25,32 @@ type picked struct {
 	cnt int
 }
 
-func RunDay(ctx context.Context, wg *sync.WaitGroup, st store.Store) {
-	defer wg.Done()
-
+func RunDay(ctx context.Context, st store.Store) {
 	cm := conn.NewManager[picked](storeCap)
 	gen := generator.New(customerTick, dayDur)
 
-	wg.Add(1)
-	go gen.Run(ctx, wg, func() {
-		defer wg.Done()
+	var wg sync.WaitGroup
 
+	gen.Run(ctx, func() {
 		wg.Add(1)
-		go run(ctx, wg, cm, st)
+		go run(ctx, &wg, cm, st)
 	})
+
+	wg.Wait()
 }
 
 func run(ctx context.Context, wg *sync.WaitGroup, cm conn.Manager[picked], st store.Store) {
 	defer wg.Done()
 
-	cn := cm.CreateConn(ctx, wg)
+	cn := cm.CreateConn(ctx)
 	if cn == nil {
 		fmt.Println("Customer dismissed")
 		return
 	}
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for m := range cn.C() {
 			if ok := st.UpdateBill(cn.ID(), m.p, m.cnt); ok {
 				fmt.Printf("Customer %d, Picked up %d item(s) of %s.\n", cn.ID(), m.cnt, m.p.Name())

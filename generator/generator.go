@@ -2,12 +2,11 @@ package generator
 
 import (
 	"context"
-	"sync"
 	"time"
 )
 
 type Generator interface {
-	Run(ctx context.Context, wg *sync.WaitGroup, onTick func())
+	Run(ctx context.Context, onTick func())
 }
 
 func New(every time.Duration, after time.Duration) Generator {
@@ -22,9 +21,7 @@ type generator struct {
 	after time.Duration
 }
 
-func (g generator) Run(ctx context.Context, wg *sync.WaitGroup, onTick func()) {
-	defer wg.Done()
-
+func (g generator) Run(ctx context.Context, onTick func()) {
 	tick, timer := time.NewTicker(g.every), time.NewTimer(g.after)
 	defer tick.Stop()
 	defer timer.Stop()

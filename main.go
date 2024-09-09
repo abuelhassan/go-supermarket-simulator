@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"time"
 
 	"github.com/abuelhassan/go-supermarket-simulator/product"
@@ -28,12 +27,8 @@ func main() {
 	st := store.New()
 	initializeStore(st)
 
-	var wg sync.WaitGroup
+	simulator.RunDay(ctx, st)
 
-	wg.Add(1)
-	simulator.RunDay(ctx, &wg, st)
-
-	wg.Wait()
 	summary := st.Summary()
 	fmt.Println(&summary)
 }

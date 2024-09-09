@@ -6,7 +6,7 @@ import (
 )
 
 type Manager[T any] interface {
-	CreateConn(ctx context.Context, wg *sync.WaitGroup) Conn[T]
+	CreateConn(ctx context.Context) Conn[T]
 	GetConnection(id int) Conn[T]
 }
 
@@ -25,7 +25,7 @@ type manager[T any] struct {
 	pool map[int]conn[T]
 }
 
-func (m *manager[T]) CreateConn(ctx context.Context, wg *sync.WaitGroup) Conn[T] {
+func (m *manager[T]) CreateConn(ctx context.Context) Conn[T] {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -36,9 +36,7 @@ func (m *manager[T]) CreateConn(ctx context.Context, wg *sync.WaitGroup) Conn[T]
 	c := newConn[T](m.nextID())
 	m.pool[c.ID()] = c
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		for {
 			select {
 			case <-c.done:
