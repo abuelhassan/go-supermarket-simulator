@@ -25,6 +25,8 @@ type manager[T any] struct {
 	pool map[int]conn[T]
 }
 
+// CreateConn creates a new Conn object if the pool size is less than
+// capacity. Otherwise, if pool is full it returns nil.
 func (m *manager[T]) CreateConn(ctx context.Context) Conn[T] {
 	m.mu.Lock()
 	defer m.mu.Unlock()
